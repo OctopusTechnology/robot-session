@@ -1,0 +1,18 @@
+services:
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: livekit
+    volumes:
+      - ./config.yaml:/etc/livekit.yaml
+    ports:
+      - "7880:7880"   # HTTP API
+      - "7881:7881"   # gRPC API
+      - "50000-60000:50000-60000/udp" # Media UDP ports
+    command: --config /etc/livekit.yaml
+    restart: unless-stopped
+    networks:
+      - rk3588-network
+
+networks:
+  rk3588-network:
+    external: true

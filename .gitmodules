@@ -1,0 +1,6 @@
+[submodule "reference/rust-sdks"]
+	path = reference/rust-sdks
+	url = https://github.com/livekit/rust-sdks
+[submodule "reference/livekit"]
+	path = reference/livekit
+	url = https://github.com/livekit/livekit.git
