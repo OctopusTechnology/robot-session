@@ -7,12 +7,36 @@ services:
     ports:
       - "7880:7880"   # HTTP API
       - "7881:7881"   # gRPC API
-      - "50000-60000:50000-60000/udp" # Media UDP ports
+      - "52000-60000:52000-60000/udp" # Media UDP ports
     command: --config /etc/livekit.yaml
     restart: unless-stopped
     networks:
       - rk3588-network
 
+  session-manager:
+    build:
+      context: ./session-manager
+      dockerfile: Dockerfile
+    container_name: session-manager
+    volumes:
+      - ./session-manager/config/docker.toml:/etc/session-manager/config.toml
+    ports:
+      - "8080:8080"   # Session Manager API
+    depends_on:
+      - livekit
+    restart: unless-stopped
+    networks:
+      - rk3588-network
+    environment:
+      - RUST_LOG=info
+      - RUST_BACKTRACE=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+
 networks:
   rk3588-network:
     external: true
+    name: rk3588-network

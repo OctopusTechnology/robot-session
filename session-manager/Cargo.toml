@@ -8,29 +8,34 @@ edition = "2021"
 tokio = { version = "1.0", features = ["full"] }
 
 # Web 框架
-axum = { version = "0.7", features = ["json"] }
-tower = "0.4"
-tower-http = { version = "0.5", features = ["cors", "trace"] }
+axum = { version = "0.8.4", features = ["json", "tokio"] }
+tower = "0.5.2"
+tower-http = { version = "0.6.5", features = ["cors", "trace"] }
+# SSE 支持
+futures = "0.3"
+tokio-stream = "0.1"
+futures-util = "0.3"
 
 # LiveKit SDK
 livekit-api = { version = "0.4", features = ["access-token", "services-tokio"] }
+livekit = { version = "0.7.11" }
 
 # 序列化
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 # HTTP 客户端
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.12", features = ["json"] }
 
 # 配置管理
-config = "0.14"
+config = "0.15"
 
 # 日志
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # 错误处理
-thiserror = "1.0"
+thiserror = "2.0"
 anyhow = "1.0"
 
 # UUID 生成
@@ -44,3 +49,13 @@ async-trait = "0.1"
 
 # 并发集合
 dashmap = "5.5"
+
+[dev-dependencies]
+# 测试框架
+tokio-test = "0.4"
+# HTTP 客户端用于测试
+reqwest = { version = "0.12.18", features = ["json", "stream"] }
+# SSE 客户端
+reqwest-eventsource = "0.6"
+# 测试断言
+assert_matches = "1.5"

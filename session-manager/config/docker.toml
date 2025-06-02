@@ -1,0 +1,22 @@
+[server]
+host = "0.0.0.0"
+port = 8080
+workers = 4
+
+[livekit]
+server_url = "ws://livekit:7880"
+api_key = "devkey"
+api_secret = "secret"
+
+[microservices]
+registration_timeout = 30
+join_timeout = 60
+
+[logging]
+level = "info"
+format = "json"
+
+[vector_log]
+enabled = true
+endpoint = "http://localhost:8686"
+source_name = "session-manager"
