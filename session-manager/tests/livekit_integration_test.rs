@@ -17,8 +17,16 @@ const LIVEKIT_API_SECRET: &str = "secret";
 
 #[tokio::test]
 async fn test_session_creation_with_livekit_client_join() {
-    // 初始化日志
-    tracing_subscriber::fmt::init();
+    // 初始化详细日志
+    tracing_subscriber::fmt()
+        .with_env_filter("session_manager=trace,livekit=trace,livekit_api=trace,tower_http=debug,reqwest=debug")
+        .with_target(true)
+        .with_line_number(true)
+        .with_thread_ids(true)
+        .with_level(true)
+        .init();
+    
+    println!("🔍 开始 LiveKit 集成测试，启用详细日志记录");
     
     // 等待 LiveKit 服务启动
     wait_for_livekit().await;
@@ -38,7 +46,7 @@ async fn test_session_creation_with_livekit_client_join() {
     sleep(Duration::from_millis(1000)).await;
     
     let client = Client::new();
-    let base_url = "http://127.0.0.1:8083";
+    let base_url = "http://127.0.0.1:8080";
     
     // 1. 测试健康检查
     println!("✓ 测试健康检查");
@@ -94,6 +102,9 @@ async fn test_session_creation_with_livekit_client_join() {
     
     // 创建 SSE 客户端
     let sse_url = format!("{}/api/v1/sessions", base_url);
+    println!("🔗 创建 SSE 连接到: {}", sse_url);
+    println!("📤 发送会话请求: {}", serde_json::to_string_pretty(&session_request).unwrap());
+    
     let mut event_source = EventSource::new(
         client
             .post(&sse_url)
@@ -101,7 +112,7 @@ async fn test_session_creation_with_livekit_client_join() {
             .json(&session_request)
     ).expect("Failed to create EventSource");
     
-    println!("✓ SSE 连接已建立");
+    println!("✓ SSE 连接已建立，开始监听事件流...");
     
     let mut session_id = None;
     let mut access_token = None;
@@ -112,16 +123,22 @@ async fn test_session_creation_with_livekit_client_join() {
     let mut event_count = 0;
     
     // 监听 SSE 事件
+    tracing::info!("开始监听 SSE 事件流");
     while let Some(event) = event_source.next().await {
+        tracing::trace!("收到 SSE 事件: {:?}", event);
         match event {
             Ok(Event::Open) => {
+                tracing::info!("SSE 连接已打开");
                 println!("✓ SSE 连接已打开");
             }
             Ok(Event::Message(message)) => {
+                tracing::info!("收到 SSE 消息: event={:?}, data_len={}", message.event, message.data.len());
+                tracing::debug!("SSE 消息数据: {}", message.data);
                 println!("收到 SSE 消息: event={:?}, data={}", message.event, message.data);
                 
                 // 解析事件数据
                 if let Ok(json_data) = serde_json::from_str::<serde_json::Value>(&message.data) {
+                    tracing::trace!("解析后的事件数据: {:#}", json_data);
                     println!("事件数据: {:#}", json_data);
                     
                     // 提取会话信息
@@ -144,17 +161,23 @@ async fn test_session_creation_with_livekit_client_join() {
                     // 如果收到会话创建事件且还没有作为客户端加入，尝试加入 LiveKit
                     if let (Some(ref token), Some(ref url)) = (&access_token, &livekit_url) {
                         if !client_joined {
+                            tracing::info!("获得会话凭据，尝试作为客户端加入 LiveKit");
+                            tracing::debug!("LiveKit URL: {}", url);
+                            tracing::trace!("Access Token: {}", token);
                             println!("✓ 获得会话凭据，尝试作为客户端加入 LiveKit...");
                             
                             match test_client_join_livekit(url, token).await {
                                 Ok(_) => {
+                                    tracing::info!("客户端成功加入 LiveKit 房间");
                                     println!("✓ 客户端成功加入 LiveKit 房间");
                                     client_joined = true;
                                     
                                     // 等待一段时间让事件传播
+                                    tracing::debug!("等待事件传播...");
                                     sleep(Duration::from_millis(2000)).await;
                                 }
                                 Err(e) => {
+                                    tracing::error!("客户端加入 LiveKit 失败: {}", e);
                                     println!("⚠ 客户端加入 LiveKit 失败: {}", e);
                                 }
                             }
@@ -171,7 +194,7 @@ async fn test_session_creation_with_livekit_client_join() {
         }
         
         // 如果会话准备就绪或达到最大事件数，退出循环
-        if session_ready || event_count > 20 {
+        if session_ready || event_count < -12312 {
             println!("会话准备就绪或达到最大事件数，停止监听");
             break;
         }
@@ -198,22 +221,32 @@ async fn test_session_creation_with_livekit_client_join() {
 }
 
 async fn test_client_join_livekit(livekit_url: &str, access_token: &str) -> Result<(), Box<dyn std::error::Error>> {
+    tracing::info!("尝试连接到 LiveKit: {}", livekit_url);
+    tracing::trace!("使用访问令牌: {}", access_token);
     println!("连接到 LiveKit: {}", livekit_url);
     
     // 连接到 LiveKit 房间
+    tracing::debug!("调用 Room::connect...");
     let (room, mut event_rx) = Room::connect(livekit_url, access_token, RoomOptions::default()).await?;
     
-    println!("✓ 连接到 LiveKit 房间: {} ({})", 
-        room.name(), 
+    tracing::info!("成功连接到 LiveKit 房间: {} ({})",
+        room.name(),
+        room.maybe_sid().map(|s| s.to_string()).unwrap_or_else(|| "unknown".to_string())
+    );
+    println!("✓ 连接到 LiveKit 房间: {} ({})",
+        room.name(),
         room.maybe_sid().map(|s| s.to_string()).unwrap_or_else(|| "unknown".to_string())
     );
     
-    // 监听事件以确认连接正常
+    // 等待初始连接建立
     let mut event_count = 0;
     let mut connected = false;
     let mut participants_seen = 0;
+    let mut webrtc_connected = false;
+    let mut data_channel_ready = false;
     
-    let timeout = tokio::time::timeout(Duration::from_secs(10), async {
+    // 第一阶段：等待基本连接
+    let connection_timeout = tokio::time::timeout(Duration::from_secs(10), async {
         while let Some(event) = event_rx.recv().await {
             println!("LiveKit 事件: {:?}", event);
             event_count += 1;
@@ -224,6 +257,13 @@ async fn test_client_join_livekit(livekit_url: &str, access_token: &str) -> Resu
                     participants_seen = participants_with_tracks.len();
                     println!("✓ 客户端连接到 LiveKit 房间，发现 {} 个参与者", participants_seen);
                 }
+                RoomEvent::ConnectionStateChanged(state) => {
+                    println!("🔗 连接状态变化: {:?}", state);
+                    if matches!(state, ConnectionState::Connected) {
+                        webrtc_connected = true;
+                        println!("✓ WebRTC 连接已建立");
+                    }
+                }
                 RoomEvent::ParticipantConnected(participant) => {
                     println!("✓ 参与者连接: {}", participant.identity());
                     participants_seen += 1;
@@ -231,30 +271,108 @@ async fn test_client_join_livekit(livekit_url: &str, access_token: &str) -> Resu
                 RoomEvent::ParticipantDisconnected(participant) => {
                     println!("✓ 参与者断开: {}", participant.identity());
                 }
+                RoomEvent::DataReceived { payload: _, participant: _, kind: _, topic: _ } => {
+                    println!("✓ 收到数据通道消息");
+                    data_channel_ready = true;
+                }
                 _ => {}
             }
             
-            // 收到足够事件后退出
-            if event_count >= 5 || (connected && participants_seen > 0) {
+            // 收到足够事件或连接建立后退出
+            if event_count >= 5 || (connected && webrtc_connected) {
                 break;
             }
         }
     }).await;
     
-    match timeout {
+    match connection_timeout {
         Ok(_) => {
-            println!("✓ 成功接收 LiveKit 事件");
-            println!("  连接状态: {}", connected);
+            println!("✓ 成功接收 LiveKit 连接事件");
+            println!("  基本连接状态: {}", connected);
+            println!("  WebRTC 连接状态: {}", webrtc_connected);
             println!("  参与者数量: {}", participants_seen);
         }
         Err(_) => {
-            println!("⚠ 等待 LiveKit 事件超时（这可能是正常的）");
+            println!("⚠ 等待 LiveKit 连接事件超时");
         }
     }
+    
+    // 第二阶段：测试 WebRTC 数据通道功能
+    if connected && webrtc_connected {
+        println!("📡 测试 WebRTC 数据通道功能...");
+        
+        // 测试数据通道
+        match test_data_channel(&room).await {
+            Ok(_) => {
+                data_channel_ready = true;
+                println!("✓ 数据通道测试成功");
+            }
+            Err(e) => {
+                println!("⚠ 数据通道测试失败: {}", e);
+            }
+        }
+        
+        // 等待数据通道事件
+        let data_timeout = tokio::time::timeout(Duration::from_secs(5), async {
+            while let Some(event) = event_rx.recv().await {
+                println!("数据通道事件: {:?}", event);
+                
+                match event {
+                    RoomEvent::DataReceived { payload, participant: _, kind: _, topic } => {
+                        println!("✓ 收到数据: topic={:?}, size={} bytes", topic, payload.len());
+                        if let Ok(message) = String::from_utf8(payload.to_vec()) {
+                            println!("  消息内容: {}", message);
+                        }
+                        data_channel_ready = true;
+                        break; // 收到数据后退出
+                    }
+                    _ => {}
+                }
+            }
+        }).await;
+        
+        match data_timeout {
+            Ok(_) => println!("✓ 数据通道功能测试完成"),
+            Err(_) => println!("⚠ 数据通道功能测试超时"),
+        }
+    }
+    
+    // 输出最终状态
+    println!("📊 WebRTC 连接测试结果:");
+    println!("  基本连接: {}", connected);
+    println!("  WebRTC 连接: {}", webrtc_connected);
+    println!("  数据通道: {}", data_channel_ready);
     
     // 关闭连接
     room.close().await?;
     println!("✓ 断开 LiveKit 房间连接");
+    
+    // 验证 WebRTC 功能
+    if !webrtc_connected {
+        return Err("WebRTC 连接未建立".into());
+    }
+    
+    Ok(())
+}
+
+async fn test_data_channel(room: &Room) -> Result<(), Box<dyn std::error::Error>> {
+    println!("📡 测试数据通道...");
+    
+    // 发送测试数据 - 使用正确的 DataPacket 结构
+    let test_data = b"Hello from WebRTC data channel!";
+    let data_packet = livekit::DataPacket {
+        payload: test_data.to_vec(),
+        topic: Some("test-topic".to_string()),
+        reliable: true,
+        destination_identities: vec![],
+    };
+    
+    room.local_participant().publish_data(data_packet).await?;
+    
+    println!("✓ 数据通道消息已发送");
+    
+    // 等待一小段时间让数据传输
+    sleep(Duration::from_millis(500)).await;
     
     Ok(())
 }
@@ -287,7 +405,7 @@ fn create_test_config() -> AppConfig {
     AppConfig {
         server: session_manager::config::ServerConfig {
             host: "127.0.0.1".to_string(),
-            port: 8083,
+            port: 8080,
             workers: Some(1),
         },
         livekit: session_manager::config::LiveKitConfig {

@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  livekit:
+    image: livekit/livekit-server:latest
+    command: --config /etc/livekit.yaml --bind 0.0.0.0
+    restart: unless-stopped
+    volumes:
+      - ./config.yaml:/etc/livekit.yaml
+    environment:
+      - "LIVEKIT_KEYS=devkey: secret"
+    network_mode: host

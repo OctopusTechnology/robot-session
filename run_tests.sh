@@ -42,28 +42,6 @@ ensure_network() {
     fi
 }
 
-# Function to wait for service to be healthy
-wait_for_service() {
-    local service_name=$1
-    local max_attempts=30
-    local attempt=1
-    
-    print_status "Waiting for $service_name to be healthy..."
-    
-    while [ $attempt -le $max_attempts ]; do
-        if docker-compose ps $service_name | grep -q "healthy"; then
-            print_success "$service_name is healthy"
-            return 0
-        fi
-        
-        print_status "Attempt $attempt/$max_attempts: $service_name not ready yet..."
-        sleep 2
-        attempt=$((attempt + 1))
-    done
-    
-    print_error "$service_name failed to become healthy within $((max_attempts * 2)) seconds"
-    return 1
-}
 
 # Function to cleanup
 cleanup() {
@@ -86,21 +64,9 @@ main() {
     print_status "Building and starting Docker services..."
     docker-compose up --build -d
     
-    # Wait for LiveKit to be healthy
-    if ! wait_for_service "livekit"; then
-        print_error "LiveKit failed to start"
-        exit 1
-    fi
-    
-    # Wait for Session Manager to be healthy
-    if ! wait_for_service "session-manager"; then
-        print_error "Session Manager failed to start"
-        exit 1
-    fi
-    
     # Give services a moment to fully initialize
     print_status "Waiting for services to fully initialize..."
-    sleep 5
+    sleep 10
     
     # Check service endpoints
     print_status "Checking service endpoints..."

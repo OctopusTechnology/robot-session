@@ -8,9 +8,9 @@ async fn main() -> Result<()> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "session_manager=debug,tower_http=debug".into()),
+                .unwrap_or_else(|_| "session_manager=trace,tower_http=debug,livekit=trace,livekit_api=trace".into()),
         )
-        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::fmt::layer().with_target(true).with_line_number(true))
         .init();
 
     // 加载配置

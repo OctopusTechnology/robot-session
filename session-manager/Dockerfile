@@ -3,28 +3,20 @@ FROM rust:latest as builder
 
 WORKDIR /app
 
-# Copy Cargo files
-COPY Cargo.toml Cargo.lock ./
-
-# Create a dummy main.rs to build dependencies
-RUN mkdir src && echo "fn main() {}" > src/main.rs
-
-# Build dependencies
-RUN cargo build --release && rm -rf src
-
-# Copy source code
-COPY src ./src
+# Copy all source files
+COPY . .
 
 # Build the application
-RUN touch src/main.rs && cargo build --release
+RUN cargo build --release
 
 # Runtime stage
-FROM debian:bookworm-slim
+FROM ubuntu:24.04
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user

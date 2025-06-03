@@ -1,5 +1,5 @@
 [server]
-host = "0.0.0.0"
+host = "127.0.0.1"
 port = 8080
 workers = 4
 
@@ -13,10 +13,10 @@ registration_timeout = 30
 join_timeout = 60
 
 [logging]
-level = "info"
-format = "json"
+level = "trace"
+format = "pretty"
 
 [vector_log]
-enabled = true
+enabled = false
 endpoint = "http://localhost:8686"
 source_name = "session-manager"

@@ -27,8 +27,18 @@ struct RoomConnection {
 
 impl LiveKitService {
     pub fn new(config: LiveKitConfig, event_bus: Arc<EventBus>) -> Self {
+        // RoomClient expects HTTP URL for API calls - ensure we use HTTP scheme
+        let api_url = if config.server_url.starts_with("ws://") {
+            config.server_url.replace("ws://", "http://")
+        } else if config.server_url.starts_with("wss://") {
+            config.server_url.replace("wss://", "https://")
+        } else {
+            // Already HTTP/HTTPS, use as-is
+            config.server_url.clone()
+        };
+        
         let room_client = RoomClient::with_api_key(
-            &config.server_url,
+            &api_url,
             &config.api_key,
             &config.api_secret,
         );
@@ -102,8 +112,8 @@ impl LiveKitService {
             room_join: true,
             room: room_name.to_string(),
             room_admin: true, // 管理员权限
-            can_publish: false, // 不发布媒体
-            can_subscribe: false, // 不订阅媒体
+            can_publish: true, // 允许发布以建立连接
+            can_subscribe: true, // 允许订阅以建立连接
             hidden: true, // 对其他参与者隐藏
             ..Default::default()
         };
@@ -115,8 +125,17 @@ impl LiveKitService {
             .to_jwt()
             .map_err(|e| SessionManagerError::Internal(e.into()))?;
         
-        // 实际连接到 LiveKit 房间
-        let (room, mut event_rx) = Room::connect(&self.config.server_url, &token, RoomOptions::default())
+        // 实际连接到 LiveKit 房间 - Room::connect 需要 WebSocket URL
+        let ws_url = if self.config.server_url.starts_with("http://") {
+            self.config.server_url.replace("http://", "ws://")
+        } else if self.config.server_url.starts_with("https://") {
+            self.config.server_url.replace("https://", "wss://")
+        } else {
+            // 如果已经是 ws:// 或 wss://，直接使用
+            self.config.server_url.clone()
+        };
+        
+        let (room, mut event_rx) = Room::connect(&ws_url, &token, RoomOptions::default())
             .await
             .map_err(|e| SessionManagerError::Internal(e.into()))?;
         
