@@ -2,21 +2,19 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use uuid::Uuid;
 use serde::{Deserialize, Serialize};
+use tracing::*;
 use crate::{
-    config::MicroserviceConfig,
-    domain::{JoinRoomRequest, Session, SessionStatus},
-    services::{LiveKitService, MicroserviceRegistry},
+    config::LiveKitConfig,
+    domain::{Session, SessionStatus},
+    services::MicroserviceRegistry,
     storage::SessionStorage,
-    utils::errors::{Result, SessionManagerError}
+    utils::errors::Result
 };
 
 #[async_trait]
 pub trait SessionService: Send + Sync {
     async fn create_session(&self, request: JoinSessionRequest) -> Result<(Session, String)>;
     async fn get_session(&self, session_id: &str) -> Result<Option<Session>>;
-    async fn update_session_status(&self, session_id: &str, status: SessionStatus) -> Result<()>;
-    async fn terminate_session(&self, session_id: &str) -> Result<()>;
-    async fn notify_service_ready(&self, session_id: &str, service_id: &str) -> Result<bool>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,191 +28,164 @@ pub struct JoinSessionRequest {
 
 pub struct SessionServiceImpl {
     storage: Arc<dyn SessionStorage>,
-    livekit_service: Arc<LiveKitService>,
     microservice_registry: Arc<MicroserviceRegistry>,
-    config: MicroserviceConfig,
-    participant_tracker: crate::events::SessionParticipantTracker,
+    livekit_config: LiveKitConfig,
+    livekit_url: String,
+    event_bus: crate::events::EventBus,
 }
 
 impl SessionServiceImpl {
     pub fn new(
         storage: Arc<dyn SessionStorage>,
-        livekit_service: Arc<LiveKitService>,
         microservice_registry: Arc<MicroserviceRegistry>,
-        config: MicroserviceConfig,
+        livekit_config: LiveKitConfig,
+        livekit_url: String,
         event_bus: crate::events::EventBus,
     ) -> Self {
-        let participant_tracker = crate::events::SessionParticipantTracker::new(event_bus);
         Self {
             storage,
-            livekit_service,
             microservice_registry,
-            config,
-            participant_tracker,
+            livekit_config,
+            livekit_url,
+            event_bus,
         }
-    }
-
-    async fn notify_microservices_to_join(&self, session: &Session) -> Result<()> {
-        for service in &session.registered_microservices {
-            // 为每个微服务生成访问令牌
-            let access_token = self.livekit_service.generate_access_token(
-                &service.service_id,
-                &session.room_name,
-                None
-            ).await?;
-            
-            let join_request = JoinRoomRequest {
-                room_name: session.room_name.clone(),
-                session_id: session.id.clone(),
-                service_identity: service.service_id.clone(),
-                access_token,
-            };
-            
-            // 异步通知微服务加入房间
-            let service_endpoint = service.endpoint.clone();
-            let session_id = session.id.clone();
-            let service_id = service.service_id.clone();
-            
-            tokio::spawn(async move {
-                if let Err(e) = Self::notify_service_join(service_endpoint, join_request).await {
-                    tracing::error!("Failed to notify service {} to join room: {}", service_id, e);
-                }
-            });
-        }
-        Ok(())
-    }
-
-    async fn notify_service_join(endpoint: String, request: JoinRoomRequest) -> Result<()> {
-        let client = reqwest::Client::new();
-        let url = format!("{}/join-room", endpoint);
-        
-        let response = client
-            .post(&url)
-            .json(&request)
-            .send()
-            .await?;
-
-        if response.status().is_success() {
-            tracing::info!("Successfully notified service at {} to join room", endpoint);
-        } else {
-            tracing::error!("Failed to notify service at {}: {}", endpoint, response.status());
-        }
-
-        Ok(())
     }
 }
 
 #[async_trait]
 impl SessionService for SessionServiceImpl {
+    #[instrument(
+        name = "create_session",
+        skip(self),
+        fields(
+            user_identity = %request.user_identity,
+            user_name = ?request.user_name,
+            room_name = ?request.room_name,
+            required_services = ?request.required_services,
+            session_id,
+            microservices_count,
+            session_status
+        )
+    )]
     async fn create_session(&self, request: JoinSessionRequest) -> Result<(Session, String)> {
-        // 1. 生成会话 ID 和房间名
+        // 1. Generate session ID and room name
         let session_id = Uuid::new_v4().to_string();
         let room_name = request.room_name.unwrap_or_else(|| format!("room-{}", session_id));
         
-        tracing::info!("Creating session {} for room {}", session_id, room_name);
+        // Record session_id in the span
+        tracing::Span::current().record("session_id", &session_id);
         
-        // 2. 创建 LiveKit 房间
-        self.livekit_service.create_room(&room_name).await?;
+        tracing::info!("Creating session for room {}", room_name);
         
-        // 3. 会话管理器作为参与者加入房间来管理会话生命周期
-        self.livekit_service.join_room_as_manager(&room_name, &session_id).await?;
-        
-        // 4. 获取已注册的微服务
+        // 2. Get registered microservices (optional)
         let registered_services = if let Some(required_service_ids) = request.required_services {
-            // 如果指定了特定的微服务 ID，则获取这些微服务
-            self.microservice_registry
-                .get_services_by_ids(&required_service_ids).await?
+            // If specific microservice IDs are specified, get those services
+            match self.microservice_registry.get_services_by_ids(&required_service_ids).await {
+                Ok(services) => {
+                    tracing::debug!("Found {} of {} required microservices", services.len(), required_service_ids.len());
+                    services
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to get some required microservices: {}", e);
+                    Vec::new() // Continue creating session, but without microservices
+                }
+            }
         } else {
-            // 如果没有指定，则获取所有可用的微服务
-            self.microservice_registry
-                .get_all_available_services().await?
+            // If none specified, get all available microservices
+            match self.microservice_registry.get_all_available_services().await {
+                Ok(services) => {
+                    tracing::debug!("Found {} available microservices", services.len());
+                    services
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to get available microservices: {}", e);
+                    Vec::new() // Continue creating session, but without microservices
+                }
+            }
         };
         
-        // 5. 创建会话对象
+        // 3. Create session object
         let mut session = Session::new(
-            session_id,
+            session_id.clone(),
             room_name.clone(),
             request.metadata.unwrap_or_default(),
         );
         
-        // 添加微服务到会话
+        // Add microservices to session (if any)
         for service in registered_services {
             session.add_microservice(service);
         }
         
-        // 6. 保存会话
+        // Record microservices count in the span
+        tracing::Span::current().record("microservices_count", session.registered_microservices.len());
+        
+        // 4. Session creates its own LiveKit room
+        session.create_livekit_room(&self.livekit_config).await?;
+        
+        // 5. Set session status and connect to LiveKit
+        if session.registered_microservices.is_empty() {
+            // No microservices, session is immediately ready
+            session.update_status(SessionStatus::Ready);
+            tracing::info!("Session created without microservices - immediately ready");
+        } else {
+            // Has microservices, let Session connect to LiveKit and monitor participants
+            let livekit_config = self.livekit_config.clone();
+            let event_bus = Arc::new(self.event_bus.clone());
+            
+            session.connect_to_livekit(livekit_config.clone(), event_bus).await?;
+            tracing::info!("Session connected to LiveKit and monitoring for {} microservices",
+                session.registered_microservices.len());
+        }
+        
+        // Record final session status in the span
+        tracing::Span::current().record("session_status", format!("{:?}", session.status).as_str());
+        
+        // 6. Save session
         self.storage.save_session(&session).await?;
         
-        // 7. 通知微服务加入房间
-        self.notify_microservices_to_join(&session).await?;
+        // 7. Generate user access token
+        let access_token = session.generate_client_token(&self.livekit_config)?;
         
-        // 8. 生成用户访问令牌
-        let access_token = self.livekit_service.generate_access_token(
-            &request.user_identity,
-            &room_name,
-            None
-        ).await?;
+        // 8. Notify microservices to join room (don't wait)
+        if !session.registered_microservices.is_empty() {
+            // Session notifies microservices to join - monitors their joining via events
+            session.notify_microservices_to_join(&self.livekit_config, &self.livekit_url).await?;
+        }
         
-        // 9. 更新状态为等待微服务
-        session.update_status(SessionStatus::WaitingForServices);
-        self.storage.update_session(&session).await?;
+        // 9. Publish session creation event
+        self.event_bus.publish_to_session(&session.id, crate::events::SessionEvent::SessionCreated {
+            session_id: session.id.clone(),
+            room_name: session.room_name.clone(),
+            access_token: access_token.clone(),
+            livekit_url: self.livekit_url.clone(),
+        });
         
-        tracing::info!("Session {} created successfully", session.id);
+        tracing::info!("Session created successfully");
         Ok((session, access_token))
     }
 
+    #[instrument(
+        name = "get_session",
+        skip(self),
+        fields(session_id = %session_id, found, status)
+    )]
     async fn get_session(&self, session_id: &str) -> Result<Option<Session>> {
-        self.storage.get_session(session_id).await
-    }
-
-    async fn update_session_status(&self, session_id: &str, status: SessionStatus) -> Result<()> {
-        if let Some(mut session) = self.storage.get_session(session_id).await? {
-            session.update_status(status);
-            self.storage.update_session(&session).await?;
-            tracing::info!("Updated session {} status to {:?}", session_id, session.status);
-        }
-        Ok(())
-    }
-
-    async fn terminate_session(&self, session_id: &str) -> Result<()> {
-        if let Some(mut session) = self.storage.get_session(session_id).await? {
-            session.update_status(SessionStatus::Terminating);
-            self.storage.update_session(&session).await?;
-            
-            // 会话管理器离开房间
-            self.livekit_service.leave_room(&session.room_name).await?;
-            
-            // 删除 LiveKit 房间
-            self.livekit_service.delete_room(&session.room_name).await?;
-            
-            // 标记为已终止
-            session.update_status(SessionStatus::Terminated);
-            self.storage.update_session(&session).await?;
-            
-            tracing::info!("Session {} terminated", session_id);
-        }
-        Ok(())
-    }
-
-    async fn notify_service_ready(&self, session_id: &str, service_id: &str) -> Result<bool> {
-        if let Some(mut session) = self.storage.get_session(session_id).await? {
-            let was_ready = session.mark_service_ready(service_id);
-            
-            if was_ready {
-                self.storage.update_session(&session).await?;
-                tracing::info!("Service {} marked as ready for session {}", service_id, session_id);
-                
-                // 检查是否所有服务都已就绪
-                if session.is_ready() {
-                    tracing::info!("All services ready for session {}", session_id);
-                }
+        match self.storage.get_session(session_id).await {
+            Ok(Some(session)) => {
+                tracing::Span::current().record("found", true);
+                tracing::Span::current().record("status", format!("{:?}", session.status).as_str());
+                tracing::debug!("Session found with {} microservices", session.registered_microservices.len());
+                Ok(Some(session))
             }
-            
-            Ok(was_ready)
-        } else {
-            Err(SessionManagerError::SessionNotFound { 
-                session_id: session_id.to_string() 
-            })
+            Ok(None) => {
+                tracing::Span::current().record("found", false);
+                tracing::debug!("Session not found");
+                Ok(None)
+            }
+            Err(e) => {
+                tracing::error!("Failed to retrieve session: {}", e);
+                Err(e)
+            }
         }
     }
 }

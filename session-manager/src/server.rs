@@ -12,7 +12,6 @@ use crate::{
     config::AppConfig,
     services::{
         session_service::SessionServiceImpl,
-        livekit_service::LiveKitService,
         microservice_registry::MicroserviceRegistry,
     },
     storage::memory::MemoryStorage,
@@ -31,10 +30,6 @@ impl Server {
         
         // 创建事件总线
         let event_bus = crate::events::EventBus::new();
-        let event_bus_arc = Arc::new(event_bus.clone());
-        
-        // 创建 LiveKit 服务
-        let livekit_service = Arc::new(LiveKitService::new(config.livekit.clone(), event_bus_arc));
         
         // 创建微服务注册表
         let microservice_registry = Arc::new(MicroserviceRegistry::new());
@@ -42,9 +37,9 @@ impl Server {
         // 创建会话服务
         let session_service = Arc::new(SessionServiceImpl::new(
             storage,
-            livekit_service,
             microservice_registry.clone(),
-            config.microservices.clone(),
+            config.livekit.clone(),
+            config.livekit.server_url.clone(),
             event_bus.clone(),
         ));
         

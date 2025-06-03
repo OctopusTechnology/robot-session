@@ -45,6 +45,7 @@ pub struct JoinRoomRequest {
     pub session_id: String,
     pub service_identity: String,
     pub access_token: String,
+    pub livekit_url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

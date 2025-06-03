@@ -4,7 +4,7 @@ use livekit_api::{
     services::room::{CreateRoomOptions, RoomClient},
 };
 use livekit::prelude::*;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::RwLock;
 use crate::{
     config::LiveKitConfig,
     events::EventBus,
@@ -209,5 +209,31 @@ impl LiveKitService {
             tracing::info!("Session manager left room: {}", room_name);
         }
         Ok(())
+    }
+
+    /// Get list of microservices that have joined the room
+    pub async fn get_joined_microservices(&self, room_name: &str, expected_services: &[String]) -> Result<Vec<String>> {
+        let connections = self.room_connections.read().await;
+        if let Some(connection) = connections.get(room_name) {
+            // Get current participants from the room
+            let participants = connection.room.remote_participants();
+            let mut joined_services = Vec::new();
+            
+            for participant in participants.values() {
+                let identity = participant.identity().to_string();
+                
+                // Check if this participant is one of our expected microservices
+                for expected_service in expected_services {
+                    if identity == *expected_service {
+                        joined_services.push(identity.clone());
+                        break;
+                    }
+                }
+            }
+            
+            Ok(joined_services)
+        } else {
+            Err(SessionManagerError::Internal(anyhow::anyhow!("Room connection not found")))
+        }
     }
 }

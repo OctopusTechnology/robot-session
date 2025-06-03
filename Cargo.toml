@@ -1,0 +1,33 @@
+[workspace]
+members = [
+    "session-manager",
+    "microservice-sdk",
+]
+resolver = "2"
+
+[workspace.dependencies]
+anyhow = "1.0"
+assert_matches = "1.5"
+async-trait = "0.1"
+axum = "0.8.4"
+chrono = "0.4"
+config = "0.15"
+dashmap = "6.1.0"
+futures = "0.3"
+futures-util = "0.3"
+livekit = "0.7.11"
+livekit-api = "0.4.3"
+reqwest = "0.12.19"
+reqwest-eventsource = "0.6"
+serde = "1.0"
+serde_json = "1.0"
+thiserror = "2.0.12"
+tokio = "1.0"
+tokio-stream = "0.1"
+tokio-test = "0.4"
+tower = "0.5.2"
+tower-http = "0.6.5"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+url = "2.0"
+uuid = "1.0"

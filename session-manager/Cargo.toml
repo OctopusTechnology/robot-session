@@ -5,57 +5,59 @@ edition = "2021"
 
 [dependencies]
 # 异步运行时
-tokio = { version = "1.0", features = ["full"] }
+tokio = { workspace = true, features = ["full"] }
 
 # Web 框架
-axum = { version = "0.8.4", features = ["json", "tokio"] }
-tower = "0.5.2"
-tower-http = { version = "0.6.5", features = ["cors", "trace"] }
+axum = { workspace = true, features = ["json", "tokio"] }
+tower = { workspace = true }
+tower-http = { workspace = true, features = ["cors", "trace"] }
 # SSE 支持
-futures = "0.3"
-tokio-stream = "0.1"
-futures-util = "0.3"
+futures = { workspace = true }
+tokio-stream = { workspace = true }
+futures-util = { workspace = true }
 
 # LiveKit SDK
-livekit-api = { version = "0.4", features = ["access-token", "services-tokio"] }
-livekit = { version = "0.7.11" }
+livekit-api = { workspace = true, features = ["access-token", "services-tokio"] }
+livekit = { workspace = true }
 
 # 序列化
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 
 # HTTP 客户端
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { workspace = true, features = ["json"] }
 
 # 配置管理
-config = "0.15"
+config = { workspace = true }
 
 # 日志
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 # 错误处理
-thiserror = "2.0"
-anyhow = "1.0"
+thiserror = { workspace = true }
+anyhow = { workspace = true }
 
 # UUID 生成
-uuid = { version = "1.0", features = ["v4", "serde"] }
+uuid = { workspace = true, features = ["v4", "serde"] }
 
 # 时间处理
-chrono = { version = "0.4", features = ["serde"] }
+chrono = { workspace = true, features = ["serde"] }
 
 # 异步 trait
-async-trait = "0.1"
+async-trait = { workspace = true }
 
 # 并发集合
-dashmap = "5.5"
+dashmap = { workspace = true }
 
 [dev-dependencies]
 # 测试框架
-tokio-test = "0.4"
+tokio-test = { workspace = true }
 # HTTP 客户端用于测试
-reqwest = { version = "0.12.18", features = ["json", "stream"] }
+reqwest = { workspace = true, features = ["json", "stream"] }
 # SSE 客户端
-reqwest-eventsource = "0.6"
+reqwest-eventsource = { workspace = true }
 # 测试断言
-assert_matches = "1.5"
+assert_matches = { workspace = true }
+# Microservice SDK for testing
+microservice-sdk = { path = "../microservice-sdk" }
