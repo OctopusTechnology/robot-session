@@ -4,3 +4,6 @@
 [submodule "reference/livekit"]
 	path = reference/livekit
 	url = https://github.com/livekit/livekit.git
+[submodule "vector-log-hub"]
+	path = vector-log-hub
+	url = https://github.com/OctopusTechnology/vector-log-hub.git
