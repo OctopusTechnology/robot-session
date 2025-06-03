@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MicroserviceInfo {
@@ -13,9 +13,9 @@ pub struct MicroserviceInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ServiceStatus {
-    Registered,  // 已注册
-    Joining,     // 正在加入房间
-    Ready,       // 已就绪
+    Registered,   // 已注册
+    Joining,      // 正在加入房间
+    Ready,        // 已就绪
     Disconnected, // 已断开
 }
 
@@ -35,7 +35,10 @@ impl MicroserviceInfo {
     }
 
     pub fn is_available(&self) -> bool {
-        matches!(self.status, ServiceStatus::Registered | ServiceStatus::Ready)
+        matches!(
+            self.status,
+            ServiceStatus::Registered | ServiceStatus::Ready
+        )
     }
 }
 

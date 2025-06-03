@@ -1,7 +1,7 @@
 pub mod memory;
 
-use async_trait::async_trait;
 use crate::{domain::Session, utils::errors::Result};
+use async_trait::async_trait;
 
 #[async_trait]
 pub trait SessionStorage: Send + Sync {

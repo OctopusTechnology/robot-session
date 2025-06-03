@@ -1,5 +1,5 @@
-pub mod session;
 pub mod microservice;
+pub mod session;
 
-pub use session::*;
 pub use microservice::*;
+pub use session::*;

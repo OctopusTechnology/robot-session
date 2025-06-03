@@ -1,19 +1,16 @@
-use std::sync::Arc;
 use axum::{
     routing::{get, post},
     Router,
 };
+use std::sync::Arc;
+use tokio::net::TcpListener;
 use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
-use tokio::net::TcpListener;
 
 use crate::{
     api::handlers,
     config::AppConfig,
-    services::{
-        session_service::SessionServiceImpl,
-        microservice_registry::MicroserviceRegistry,
-    },
+    services::{microservice_registry::MicroserviceRegistry, session_service::SessionServiceImpl},
     storage::memory::MemoryStorage,
     utils::errors::Result,
 };
@@ -27,13 +24,13 @@ impl Server {
     pub async fn new(config: AppConfig) -> Result<Self> {
         // 创建存储
         let storage = Arc::new(MemoryStorage::new());
-        
+
         // 创建事件总线
         let event_bus = crate::events::EventBus::new();
-        
+
         // 创建微服务注册表
         let microservice_registry = Arc::new(MicroserviceRegistry::new());
-        
+
         // 创建会话服务
         let session_service = Arc::new(SessionServiceImpl::new(
             storage,
@@ -42,7 +39,7 @@ impl Server {
             config.livekit.server_url.clone(),
             event_bus.clone(),
         ));
-        
+
         // 创建应用状态
         let app_state = handlers::AppState {
             session_service,
@@ -54,13 +51,16 @@ impl Server {
         // 构建路由
         let app = Router::new()
             .route("/health", get(handlers::health_check))
-            .route("/api/v1/microservices/register", post(handlers::register_microservice))
+            .route(
+                "/api/v1/microservices/register",
+                post(handlers::register_microservice),
+            )
             .route("/api/v1/sessions", post(handlers::create_session))
             .with_state(app_state)
             .layer(
                 ServiceBuilder::new()
                     .layer(TraceLayer::new_for_http())
-                    .layer(CorsLayer::permissive())
+                    .layer(CorsLayer::permissive()),
             );
 
         Ok(Self { config, app })
@@ -70,10 +70,12 @@ impl Server {
         let addr = format!("{}:{}", self.config.server.host, self.config.server.port);
         tracing::info!("Starting server on {}", addr);
 
-        let listener = TcpListener::bind(&addr).await
+        let listener = TcpListener::bind(&addr)
+            .await
             .map_err(|e| crate::utils::errors::SessionManagerError::Internal(e.into()))?;
 
-        axum::serve(listener, self.app).await
+        axum::serve(listener, self.app)
+            .await
             .map_err(|e| crate::utils::errors::SessionManagerError::Internal(e.into()))?;
 
         Ok(())

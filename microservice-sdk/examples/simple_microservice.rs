@@ -6,15 +6,15 @@
 //! 3. Listens for data messages containing "ping"
 //! 4. Responds with "pong" messages
 
-use std::sync::Arc;
-use std::collections::HashMap;
-use microservice_sdk::{
-    MicroserviceConfig, MicroserviceRunner, MicroserviceHandler,
-    JoinRoomRequest, Result as SdkResult,
-};
 use async_trait::async_trait;
-use tracing::{info, error, warn};
 use livekit::prelude::*;
+use microservice_sdk::{
+    JoinRoomRequest, MicroserviceConfig, MicroserviceHandler, MicroserviceRunner,
+    Result as SdkResult,
+};
+use std::collections::HashMap;
+use std::sync::Arc;
+use tracing::{error, info, warn};
 
 /// PongService that connects to LiveKit and responds to ping messages
 struct PongService {
@@ -23,48 +23,63 @@ struct PongService {
 
 impl PongService {
     fn new(service_name: String) -> Self {
-        Self {
-            service_name,
-        }
+        Self { service_name }
     }
 }
 
 #[async_trait]
 impl MicroserviceHandler for PongService {
     async fn handle_join_room(&self, request: JoinRoomRequest) -> SdkResult<()> {
-        info!("PongService {} joining room {} for session {}",
-            self.service_name, request.room_name, request.session_id);
+        info!(
+            "PongService {} joining room {} for session {}",
+            self.service_name, request.room_name, request.session_id
+        );
 
         // Use the LiveKit URL provided in the request
         let livekit_url = &request.livekit_url;
 
         // Connect to LiveKit room
         let room_options = RoomOptions::default();
-        
+
         match Room::connect(livekit_url, &request.access_token, room_options).await {
             Ok((room, mut event_rx)) => {
-                info!("PongService {} successfully connected to room {}",
-                    self.service_name, request.room_name);
+                info!(
+                    "PongService {} successfully connected to room {}",
+                    self.service_name, request.room_name
+                );
 
                 // Spawn a task to handle room events
-                let session_id = request.session_id.clone();
                 let room_name = request.room_name.clone();
                 let service_name = self.service_name.clone();
 
                 tokio::spawn(async move {
-                    info!("PongService {} starting event loop for room {}", service_name, room_name);
+                    info!(
+                        "PongService {} starting event loop for room {}",
+                        service_name, room_name
+                    );
 
                     while let Some(event) = event_rx.recv().await {
                         match event {
-                            RoomEvent::DataReceived { payload, participant, .. } => {
+                            RoomEvent::DataReceived {
+                                payload,
+                                participant,
+                                ..
+                            } => {
                                 let message = String::from_utf8_lossy(&payload);
-                                info!("PongService {} received message from {}: {}",
-                                    service_name, participant.map(|p| p.identity()).unwrap_or_default(), message);
+                                info!(
+                                    "PongService {} received message from {}: {}",
+                                    service_name,
+                                    participant.map(|p| p.identity()).unwrap_or_default(),
+                                    message
+                                );
 
                                 // Check if message contains "ping"
                                 if message.to_lowercase().contains("ping") {
-                                    info!("PongService {} detected ping, sending pong!", service_name);
-                                    
+                                    info!(
+                                        "PongService {} detected ping, sending pong!",
+                                        service_name
+                                    );
+
                                     // Send pong response
                                     let pong_data = DataPacket {
                                         payload: "pong".to_string().into_bytes(),
@@ -72,24 +87,37 @@ impl MicroserviceHandler for PongService {
                                         ..Default::default()
                                     };
 
-                                    if let Err(e) = room.local_participant().publish_data(pong_data).await {
-                                        error!("PongService {} failed to send pong: {}", service_name, e);
+                                    if let Err(e) =
+                                        room.local_participant().publish_data(pong_data).await
+                                    {
+                                        error!(
+                                            "PongService {} failed to send pong: {}",
+                                            service_name, e
+                                        );
                                     } else {
                                         info!("PongService {} sent pong response!", service_name);
                                     }
                                 }
                             }
                             RoomEvent::ParticipantConnected(participant) => {
-                                info!("PongService {} - participant joined: {}",
-                                    service_name, participant.identity());
+                                info!(
+                                    "PongService {} - participant joined: {}",
+                                    service_name,
+                                    participant.identity()
+                                );
                             }
                             RoomEvent::ParticipantDisconnected(participant) => {
-                                info!("PongService {} - participant left: {}",
-                                    service_name, participant.identity());
+                                info!(
+                                    "PongService {} - participant left: {}",
+                                    service_name,
+                                    participant.identity()
+                                );
                             }
                             RoomEvent::Disconnected { reason } => {
-                                warn!("PongService {} disconnected from room {}: {:?}",
-                                    service_name, room_name, reason);
+                                warn!(
+                                    "PongService {} disconnected from room {}: {:?}",
+                                    service_name, room_name, reason
+                                );
                                 break;
                             }
                             _ => {
@@ -99,16 +127,21 @@ impl MicroserviceHandler for PongService {
                         }
                     }
 
-                    info!("PongService {} event loop ended for room {}", service_name, room_name);
+                    info!(
+                        "PongService {} event loop ended for room {}",
+                        service_name, room_name
+                    );
                 });
 
                 Ok(())
             }
             Err(e) => {
-                error!("PongService {} failed to connect to room {}: {}",
-                    self.service_name, request.room_name, e);
+                error!(
+                    "PongService {} failed to connect to room {}: {}",
+                    self.service_name, request.room_name, e
+                );
                 Err(microservice_sdk::MicroserviceError::JoinRoomFailed(
-                    format!("LiveKit connection failed: {}", e)
+                    format!("LiveKit connection failed: {}", e),
                 ))
             }
         }
@@ -132,22 +165,21 @@ async fn main() -> SdkResult<()> {
 
     let mut metadata = HashMap::new();
     metadata.insert("type".to_string(), "pong-service".to_string());
-    metadata.insert("capabilities".to_string(), "ping-pong-responder".to_string());
+    metadata.insert(
+        "capabilities".to_string(),
+        "ping-pong-responder".to_string(),
+    );
 
-    let config = MicroserviceConfig::new(
-        session_manager_url,
-        service_id.clone(),
-        service_endpoint,
-    )
-    .with_metadata(metadata)
-    .with_timeout(30);
+    let config = MicroserviceConfig::new(session_manager_url, service_id.clone(), service_endpoint)
+        .with_metadata(metadata)
+        .with_timeout(30);
 
     // Create the microservice handler
     let handler = Arc::new(PongService::new(service_id));
 
     // Create and start the microservice runner
     let runner = MicroserviceRunner::new(config, handler)?;
-    
+
     info!("Starting PongService microservice...");
     runner.start().await?;
 

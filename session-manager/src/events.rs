@@ -1,8 +1,8 @@
-use std::sync::Arc;
-use serde::{Deserialize, Serialize};
-use tokio::sync::broadcast;
-use dashmap::DashMap;
 use crate::domain::SessionStatus;
+use dashmap::DashMap;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use tokio::sync::broadcast;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -64,11 +64,9 @@ impl EventBus {
 
     /// 获取会话特定的事件流
     pub fn get_session_stream(&self, session_id: &str) -> Option<EventReceiver> {
-        if let Some(sender) = self.session_senders.get(session_id) {
-            Some(sender.subscribe())
-        } else {
-            None
-        }
+        self.session_senders
+            .get(session_id)
+            .map(|sender| sender.subscribe())
     }
 
     /// 发布事件到特定会话
@@ -86,11 +84,16 @@ impl EventBus {
     }
 
     /// 发布参与者加入事件
-    pub async fn publish_participant_joined(&self, session_id: &str, participant_identity: &str) -> Result<(), crate::utils::errors::SessionManagerError> {
+    pub async fn publish_participant_joined(
+        &self,
+        session_id: &str,
+        participant_identity: &str,
+    ) -> Result<(), crate::utils::errors::SessionManagerError> {
         let event = if participant_identity.starts_with("session-manager-") {
             // 忽略会话管理器自己的加入事件
             return Ok(());
-        } else if participant_identity.contains("user") || !participant_identity.contains("service") {
+        } else if participant_identity.contains("user") || !participant_identity.contains("service")
+        {
             SessionEvent::ClientJoined {
                 session_id: session_id.to_string(),
                 user_identity: participant_identity.to_string(),
@@ -101,15 +104,23 @@ impl EventBus {
                 service_id: participant_identity.to_string(),
             }
         };
-        
+
         self.publish_to_session(session_id, event);
         Ok(())
     }
 
     /// 发布参与者离开事件
-    pub async fn publish_participant_left(&self, session_id: &str, participant_identity: &str) -> Result<(), crate::utils::errors::SessionManagerError> {
+    pub async fn publish_participant_left(
+        &self,
+        session_id: &str,
+        participant_identity: &str,
+    ) -> Result<(), crate::utils::errors::SessionManagerError> {
         // 可以根据需要添加参与者离开的事件类型
-        tracing::info!("Participant {} left session {}", participant_identity, session_id);
+        tracing::info!(
+            "Participant {} left session {}",
+            participant_identity,
+            session_id
+        );
         Ok(())
     }
 

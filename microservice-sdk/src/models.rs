@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Configuration for the microservice SDK
 #[derive(Debug, Clone)]
@@ -17,11 +17,7 @@ pub struct MicroserviceConfig {
 }
 
 impl MicroserviceConfig {
-    pub fn new(
-        session_manager_url: String,
-        service_id: String,
-        service_endpoint: String,
-    ) -> Self {
+    pub fn new(session_manager_url: String, service_id: String, service_endpoint: String) -> Self {
         Self {
             session_manager_url,
             service_id,

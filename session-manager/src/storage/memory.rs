@@ -1,11 +1,7 @@
-use std::sync::Arc;
+use crate::{domain::Session, storage::SessionStorage, utils::errors::Result};
 use async_trait::async_trait;
 use dashmap::DashMap;
-use crate::{
-    domain::Session,
-    storage::SessionStorage,
-    utils::errors::Result,
-};
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct MemoryStorage {

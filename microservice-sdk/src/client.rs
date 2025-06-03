@@ -1,11 +1,11 @@
+use reqwest::Client;
 use std::sync::Arc;
 use std::time::Duration;
-use reqwest::Client;
-use tracing::{info, error};
+use tracing::{error, info};
 
 use crate::{
-    models::*,
     errors::{MicroserviceError, Result},
+    models::*,
     traits::MicroserviceHandler,
 };
 
@@ -32,8 +32,11 @@ impl SessionManagerClient {
 
     /// Register this microservice with the session manager
     pub async fn register(&self) -> Result<RegisterMicroserviceResponse> {
-        let url = format!("{}/api/v1/microservices/register", self.config.session_manager_url);
-        
+        let url = format!(
+            "{}/api/v1/microservices/register",
+            self.config.session_manager_url
+        );
+
         let request = RegisterMicroserviceRequest {
             service_id: self.config.service_id.clone(),
             endpoint: self.config.service_endpoint.clone(),
@@ -44,22 +47,27 @@ impl SessionManagerClient {
             },
         };
 
-        info!("Registering microservice {} with session manager", self.config.service_id);
+        info!(
+            "Registering microservice {} with session manager",
+            self.config.service_id
+        );
 
-        let response = self.http_client
-            .post(&url)
-            .json(&request)
-            .send()
-            .await?;
+        let response = self.http_client.post(&url).json(&request).send().await?;
 
         if response.status().is_success() {
             let register_response: RegisterMicroserviceResponse = response.json().await?;
-            info!("Successfully registered microservice: {}", register_response.message);
+            info!(
+                "Successfully registered microservice: {}",
+                register_response.message
+            );
             Ok(register_response)
         } else {
             let status = response.status().as_u16();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-            
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+
             // Try to parse as ErrorResponse
             if let Ok(error_response) = serde_json::from_str::<ErrorResponse>(&error_text) {
                 Err(MicroserviceError::SessionManagerError {
@@ -75,7 +83,6 @@ impl SessionManagerClient {
         }
     }
 
-
     /// Get the service configuration
     pub fn config(&self) -> &MicroserviceConfig {
         &self.config
@@ -90,16 +97,10 @@ pub struct MicroserviceRunner {
 
 impl MicroserviceRunner {
     /// Create a new microservice runner
-    pub fn new(
-        config: MicroserviceConfig,
-        handler: Arc<dyn MicroserviceHandler>,
-    ) -> Result<Self> {
+    pub fn new(config: MicroserviceConfig, handler: Arc<dyn MicroserviceHandler>) -> Result<Self> {
         let client = SessionManagerClient::new(config)?;
-        
-        Ok(Self {
-            client,
-            handler,
-        })
+
+        Ok(Self { client, handler })
     }
 
     /// Start the microservice (register and start HTTP server)
@@ -121,13 +122,7 @@ impl MicroserviceRunner {
 
     /// Start HTTP server to handle requests from session manager
     async fn start_http_server(&self) -> Result<()> {
-        use axum::{
-            extract::State,
-            http::StatusCode,
-            response::Json,
-            routing::post,
-            Router,
-        };
+        use axum::{extract::State, http::StatusCode, response::Json, routing::post, Router};
 
         #[derive(Clone)]
         struct AppState {
@@ -143,12 +138,18 @@ impl MicroserviceRunner {
             State(state): State<AppState>,
             Json(request): Json<JoinRoomRequest>,
         ) -> std::result::Result<Json<JoinRoomResponse>, (StatusCode, String)> {
-            info!("Received join-room request for session {}", request.session_id);
+            info!(
+                "Received join-room request for session {}",
+                request.session_id
+            );
 
             // Call the microservice handler
             match state.handler.handle_join_room(request.clone()).await {
                 Ok(()) => {
-                    info!("Successfully joined room for session {}", request.session_id);
+                    info!(
+                        "Successfully joined room for session {}",
+                        request.session_id
+                    );
                     let response = JoinRoomResponse {
                         success: true,
                         message: "Successfully joined room".to_string(),
@@ -159,7 +160,10 @@ impl MicroserviceRunner {
                 }
                 Err(e) => {
                     error!("Failed to join room: {}", e);
-                    Err((StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to join room: {}", e)))
+                    Err((
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("Failed to join room: {}", e),
+                    ))
                 }
             }
         }
@@ -170,7 +174,10 @@ impl MicroserviceRunner {
         ) -> std::result::Result<Json<serde_json::Value>, (StatusCode, String)> {
             match state.handler.health_check().await {
                 Ok(()) => Ok(Json(serde_json::json!({"status": "healthy"}))),
-                Err(e) => Err((StatusCode::SERVICE_UNAVAILABLE, format!("Health check failed: {}", e))),
+                Err(e) => Err((
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    format!("Health check failed: {}", e),
+                )),
             }
         }
 
@@ -185,9 +192,9 @@ impl MicroserviceRunner {
 
         info!("Starting HTTP server on {}", addr);
 
-        let listener = tokio::net::TcpListener::bind(&addr)
-            .await
-            .map_err(|e| MicroserviceError::ConfigurationError(format!("Failed to bind to {}: {}", addr, e)))?;
+        let listener = tokio::net::TcpListener::bind(&addr).await.map_err(|e| {
+            MicroserviceError::ConfigurationError(format!("Failed to bind to {}: {}", addr, e))
+        })?;
 
         axum::serve(listener, app)
             .await
@@ -199,15 +206,20 @@ impl MicroserviceRunner {
     /// Extract port number from service endpoint URL
     fn extract_port_from_endpoint(&self) -> Result<u16> {
         let endpoint = &self.client.config.service_endpoint;
-        
+
         // Parse URL to extract port
-        let url = url::Url::parse(endpoint)
-            .map_err(|e| MicroserviceError::ConfigurationError(format!("Invalid endpoint URL: {}", e)))?;
-        
+        let url = url::Url::parse(endpoint).map_err(|e| {
+            MicroserviceError::ConfigurationError(format!("Invalid endpoint URL: {}", e))
+        })?;
+
         let port = url.port().unwrap_or(match url.scheme() {
             "http" => 80,
             "https" => 443,
-            _ => return Err(MicroserviceError::ConfigurationError("Unknown URL scheme".to_string())),
+            _ => {
+                return Err(MicroserviceError::ConfigurationError(
+                    "Unknown URL scheme".to_string(),
+                ))
+            }
         });
 
         Ok(port)

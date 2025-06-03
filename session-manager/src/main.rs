@@ -7,10 +7,15 @@ async fn main() -> Result<()> {
     // 初始化日志
     tracing_subscriber::registry()
         .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "session_manager=trace,tower_http=debug,livekit=trace,livekit_api=trace".into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                "session_manager=trace,tower_http=debug,livekit=trace,livekit_api=trace".into()
+            }),
         )
-        .with(tracing_subscriber::fmt::layer().with_target(true).with_line_number(true))
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_target(true)
+                .with_line_number(true),
+        )
         .init();
 
     // 加载配置

@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use crate::domain::SessionStatus;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use crate::domain::SessionStatus;
+use std::collections::HashMap;
 
 // 微服务注册 API
 #[derive(Debug, Deserialize)]

@@ -1,16 +1,12 @@
-use std::sync::Arc;
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::Json,
-};
-use chrono::Utc;
 use crate::{
     api::models::*,
     domain::MicroserviceInfo,
-    services::{SessionService, MicroserviceRegistry},
+    services::{MicroserviceRegistry, SessionService},
     utils::errors::SessionManagerError,
 };
+use axum::{extract::State, http::StatusCode, response::Json};
+use chrono::Utc;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -40,7 +36,11 @@ pub async fn register_microservice(
         request.metadata.unwrap_or_default(),
     );
 
-    match state.microservice_registry.register_service(microservice).await {
+    match state
+        .microservice_registry
+        .register_service(microservice)
+        .await
+    {
         Ok(_) => Ok(Json(RegisterMicroserviceResponse {
             success: true,
             service_id: request.service_id,
@@ -74,7 +74,7 @@ pub async fn create_session(
                 livekit_url: state.config.livekit.server_url.clone(),
                 status: session.status,
             };
-            
+
             tracing::info!("Session {} created successfully", session.id);
             Ok(Json(response))
         }
@@ -85,14 +85,15 @@ pub async fn create_session(
     }
 }
 
-
 // 错误处理辅助函数
 fn handle_error(error: SessionManagerError) -> (StatusCode, Json<ErrorResponse>) {
     let (status_code, error_type) = match &error {
         SessionManagerError::SessionNotFound { .. } => (StatusCode::NOT_FOUND, "SessionNotFound"),
         SessionManagerError::InvalidRequest(_) => (StatusCode::BAD_REQUEST, "InvalidRequest"),
         SessionManagerError::MicroserviceJoinTimeout => (StatusCode::REQUEST_TIMEOUT, "Timeout"),
-        SessionManagerError::Configuration(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Configuration"),
+        SessionManagerError::Configuration(_) => {
+            (StatusCode::INTERNAL_SERVER_ERROR, "Configuration")
+        }
         _ => (StatusCode::INTERNAL_SERVER_ERROR, "InternalError"),
     };
 

@@ -1,15 +1,15 @@
-use std::sync::Arc;
-use async_trait::async_trait;
-use uuid::Uuid;
-use serde::{Deserialize, Serialize};
-use tracing::*;
 use crate::{
     config::LiveKitConfig,
     domain::{Session, SessionStatus},
     services::MicroserviceRegistry,
     storage::SessionStorage,
-    utils::errors::Result
+    utils::errors::Result,
 };
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use tracing::*;
+use uuid::Uuid;
 
 #[async_trait]
 pub trait SessionService: Send + Sync {
@@ -70,19 +70,29 @@ impl SessionService for SessionServiceImpl {
     async fn create_session(&self, request: JoinSessionRequest) -> Result<(Session, String)> {
         // 1. Generate session ID and room name
         let session_id = Uuid::new_v4().to_string();
-        let room_name = request.room_name.unwrap_or_else(|| format!("room-{}", session_id));
-        
+        let room_name = request
+            .room_name
+            .unwrap_or_else(|| format!("room-{}", session_id));
+
         // Record session_id in the span
         tracing::Span::current().record("session_id", &session_id);
-        
+
         tracing::info!("Creating session for room {}", room_name);
-        
+
         // 2. Get registered microservices (optional)
         let registered_services = if let Some(required_service_ids) = request.required_services {
             // If specific microservice IDs are specified, get those services
-            match self.microservice_registry.get_services_by_ids(&required_service_ids).await {
+            match self
+                .microservice_registry
+                .get_services_by_ids(&required_service_ids)
+                .await
+            {
                 Ok(services) => {
-                    tracing::debug!("Found {} of {} required microservices", services.len(), required_service_ids.len());
+                    tracing::debug!(
+                        "Found {} of {} required microservices",
+                        services.len(),
+                        required_service_ids.len()
+                    );
                     services
                 }
                 Err(e) => {
@@ -92,7 +102,11 @@ impl SessionService for SessionServiceImpl {
             }
         } else {
             // If none specified, get all available microservices
-            match self.microservice_registry.get_all_available_services().await {
+            match self
+                .microservice_registry
+                .get_all_available_services()
+                .await
+            {
                 Ok(services) => {
                     tracing::debug!("Found {} available microservices", services.len());
                     services
@@ -103,25 +117,28 @@ impl SessionService for SessionServiceImpl {
                 }
             }
         };
-        
+
         // 3. Create session object
         let mut session = Session::new(
             session_id.clone(),
             room_name.clone(),
             request.metadata.unwrap_or_default(),
         );
-        
+
         // Add microservices to session (if any)
         for service in registered_services {
             session.add_microservice(service);
         }
-        
+
         // Record microservices count in the span
-        tracing::Span::current().record("microservices_count", session.registered_microservices.len());
-        
+        tracing::Span::current().record(
+            "microservices_count",
+            session.registered_microservices.len(),
+        );
+
         // 4. Session creates its own LiveKit room
         session.create_livekit_room(&self.livekit_config).await?;
-        
+
         // 5. Set session status and connect to LiveKit
         if session.registered_microservices.is_empty() {
             // No microservices, session is immediately ready
@@ -131,35 +148,44 @@ impl SessionService for SessionServiceImpl {
             // Has microservices, let Session connect to LiveKit and monitor participants
             let livekit_config = self.livekit_config.clone();
             let event_bus = Arc::new(self.event_bus.clone());
-            
-            session.connect_to_livekit(livekit_config.clone(), event_bus).await?;
-            tracing::info!("Session connected to LiveKit and monitoring for {} microservices",
-                session.registered_microservices.len());
+
+            session
+                .connect_to_livekit(livekit_config.clone(), event_bus)
+                .await?;
+            tracing::info!(
+                "Session connected to LiveKit and monitoring for {} microservices",
+                session.registered_microservices.len()
+            );
         }
-        
+
         // Record final session status in the span
         tracing::Span::current().record("session_status", format!("{:?}", session.status).as_str());
-        
+
         // 6. Save session
         self.storage.save_session(&session).await?;
-        
+
         // 7. Generate user access token
         let access_token = session.generate_client_token(&self.livekit_config)?;
-        
+
         // 8. Notify microservices to join room (don't wait)
         if !session.registered_microservices.is_empty() {
             // Session notifies microservices to join - monitors their joining via events
-            session.notify_microservices_to_join(&self.livekit_config, &self.livekit_url).await?;
+            session
+                .notify_microservices_to_join(&self.livekit_config, &self.livekit_url)
+                .await?;
         }
-        
+
         // 9. Publish session creation event
-        self.event_bus.publish_to_session(&session.id, crate::events::SessionEvent::SessionCreated {
-            session_id: session.id.clone(),
-            room_name: session.room_name.clone(),
-            access_token: access_token.clone(),
-            livekit_url: self.livekit_url.clone(),
-        });
-        
+        self.event_bus.publish_to_session(
+            &session.id,
+            crate::events::SessionEvent::SessionCreated {
+                session_id: session.id.clone(),
+                room_name: session.room_name.clone(),
+                access_token: access_token.clone(),
+                livekit_url: self.livekit_url.clone(),
+            },
+        );
+
         tracing::info!("Session created successfully");
         Ok((session, access_token))
     }
@@ -174,7 +200,10 @@ impl SessionService for SessionServiceImpl {
             Ok(Some(session)) => {
                 tracing::Span::current().record("found", true);
                 tracing::Span::current().record("status", format!("{:?}", session.status).as_str());
-                tracing::debug!("Session found with {} microservices", session.registered_microservices.len());
+                tracing::debug!(
+                    "Session found with {} microservices",
+                    session.registered_microservices.len()
+                );
                 Ok(Some(session))
             }
             Ok(None) => {
