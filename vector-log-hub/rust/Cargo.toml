@@ -1,0 +1,24 @@
+[package]
+name = "tracing-vector"
+version = "0.1.0"
+edition = "2021"
+description = "Tracing layer for sending logs to Vector log aggregator"
+authors = ["Vector Log Hub Team"]
+license = "MIT"
+
+[dependencies]
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tracing-core = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+tokio = { version = "1.0", features = ["full"], optional = true }
+
+[dev-dependencies]
+tokio-test = "0.4"
+tokio = { version = "1.0", features = ["full"] }
+
+[features]
+default = []
+async = ["tokio"]

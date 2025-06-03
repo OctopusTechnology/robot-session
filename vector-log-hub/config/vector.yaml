@@ -1,0 +1,135 @@
+# Vector configuration for RK3588 embedded log hub
+# Supports Rust, C++, and Python microservices
+
+# Enable API for Grafana integration
+api:
+  enabled: true
+  address: "0.0.0.0:8686"
+
+# Sources - collect logs from microservices
+sources:
+  # TCP socket for receiving JSON logs from microservices
+  tcp_logs:
+    type: "socket"
+    address: "0.0.0.0:9000"
+    mode: "tcp"
+    decoding:
+      codec: "json"
+
+  # Internal metrics for monitoring Vector itself
+  internal_metrics:
+    type: "internal_metrics"
+
+  # Internal logs for debugging Vector
+  internal_logs:
+    type: "internal_logs"
+
+# Transforms - process and enrich log data
+transforms:
+  # Parse and enrich incoming JSON logs
+  parse_logs:
+    type: "remap"
+    inputs: ["tcp_logs"]
+    source: |
+      # Ensure timestamp exists and is properly formatted
+      if exists(.timestamp) {
+        .timestamp_raw = .timestamp
+        .timestamp = parse_timestamp!(.timestamp, format: "%Y-%m-%dT%H:%M:%S%.6fZ")
+      } else {
+        .timestamp = now()
+      }
+
+      # Ensure required fields exist with defaults
+      if !exists(.level) {
+        .level = "info"
+      }
+      if !exists(.service) {
+        .service = "unknown"
+      }
+      if !exists(.message) {
+        .message = ""
+      }
+      
+      # Add processing metadata
+      .vector_processed_at = now()
+      
+      # Parse context if it exists
+      if exists(.context) && is_object(.context) {
+        .operation_id = .context.operation_id
+        .duration_ms = .context.duration_ms
+      }
+
+  # Filter logs by level for different outputs
+  filter_errors:
+    type: "filter"
+    inputs: ["parse_logs"]
+    condition: '.level == "error" || .level == "critical" || .level == "fatal"'
+
+  # Convert logs to metrics for monitoring
+  log_to_metrics:
+    type: "log_to_metric"
+    inputs: ["parse_logs"]
+    metrics:
+      - type: "counter"
+        field: "message"
+        name: "log_events_total"
+        tags:
+          service: "{{ service }}"
+          level: "{{ level }}"
+          host: "rk3588"
+
+# Sinks - output processed logs
+sinks:
+  # Primary log storage with rotation for embedded storage constraints
+  file_logs:
+    type: "file"
+    inputs: ["parse_logs"]
+    path: "/var/log/vector/app-%Y-%m-%d.log"
+    encoding:
+      codec: "json"
+    buffer:
+      type: "memory"
+      max_events: 500
+      when_full: "drop_newest"
+
+  # Error logs separate file for quick debugging
+  error_logs:
+    type: "file"
+    inputs: ["filter_errors"]
+    path: "/var/log/vector/errors-%Y-%m-%d.log"
+    encoding:
+      codec: "json"
+
+  # Console output for development debugging
+  console_debug:
+    type: "console"
+    inputs: ["parse_logs"]
+    target: "stdout"
+    encoding:
+      codec: "json"
+
+  # Prometheus metrics endpoint for Grafana
+  prometheus_metrics:
+    type: "prometheus_exporter"
+    inputs: ["internal_metrics", "log_to_metrics"]
+    address: "0.0.0.0:9090"
+    default_namespace: "vector"
+
+  # Vector internal logs for debugging
+  vector_logs:
+    type: "file"
+    inputs: ["internal_logs"]
+    path: "/var/log/vector/vector-internal.log"
+    encoding:
+      codec: "text"
+
+  # Send logs to Loki for Grafana querying
+  loki_logs:
+    type: "loki"
+    inputs: ["parse_logs"]
+    endpoint: "http://loki:3100"
+    encoding:
+      codec: "text"
+    labels:
+      level: "{{ level }}"              # Dynamic from parsed log level
+      service_name: "{{ service }}"         # Dynamic service name for filtering
