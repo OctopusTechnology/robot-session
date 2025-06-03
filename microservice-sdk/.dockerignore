@@ -14,10 +14,10 @@ Cargo.lock.bak
 README*
 doc/
 docs/
-API文档.md
 
 # Test files
 tests/
+examples/
 *.test
 *_test.rs
 
@@ -37,4 +37,3 @@ temp/
 !src/
 !Cargo.toml
 !Cargo.lock
-!config/

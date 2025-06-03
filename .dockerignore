@@ -1,0 +1,119 @@
+# Exclude the entire reference directory
+reference/
+
+# Version control
+.git/
+.gitignore
+.gitmodules
+.gitattributes
+
+# Build artifacts and caches
+target/
+**/target/
+node_modules/
+**/node_modules/
+dist/
+build/
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Documentation (not needed in container)
+*.md
+README*
+CHANGELOG*
+LICENSE*
+NOTICE*
+doc/
+docs/
+**/doc/
+**/docs/
+
+# Test files and directories
+tests/
+**/tests/
+test/
+**/test/
+*.test
+*_test.rs
+*_test.go
+*_test.py
+
+# Development and CI files
+.env
+.env.*
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+*/.dockerignore
+Makefile
+makefile
+.travis.yml
+.github/
+.gitlab-ci.yml
+.circleci/
+
+# Logs and temporary files
+*.log
+logs/
+tmp/
+temp/
+.tmp/
+
+# Package manager files (keep Cargo.toml and Cargo.lock)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Python specific
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.coverage
+.tox/
+.venv/
+venv/
+env/
+
+# Rust specific cache and artifacts
+Cargo.lock.bak
+.cargo/
+
+# Configuration files that shouldn't be in container
+config-sample.*
+*.sample
+*.example
+
+# Scripts that are for local development
+run_*.sh
+install-*.sh
+bootstrap.sh
+
+# Keep necessary files by explicitly not ignoring them
+!Cargo.toml
+!Cargo.lock
+!config.yaml
+!session-manager/config/
+!microservice-sdk/src/
+!microservice-sdk/Cargo.toml
+!microservice-sdk/Cargo.lock
+!session-manager/src/
+!session-manager/Cargo.toml
+!session-manager/Cargo.lock
+!vector-log-hub/config/
+!vector-log-hub/rust/src/
+!vector-log-hub/rust/Cargo.toml
+!vector-log-hub/rust/Cargo.lock

@@ -1,5 +1,6 @@
 # Build artifacts
 target/
+**/target/
 Cargo.lock.bak
 
 # IDE and editor files
@@ -14,18 +15,33 @@ Cargo.lock.bak
 README*
 doc/
 docs/
-API文档.md
 
 # Test files
 tests/
+**/tests/
 *.test
 *_test.rs
+*_test.py
 
 # Development files
 .env
 .env.*
 Dockerfile*
 .dockerignore
+docker-compose*.yml
+
+# Python specific
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.coverage
+.tox/
+.venv/
+venv/
+env/
+uv.lock
 
 # Logs and temporary files
 *.log
@@ -33,8 +49,15 @@ logs/
 tmp/
 temp/
 
+# Git repository files
+.git/
+.gitignore
+.gitrepo
+
 # Keep necessary source files and configuration
-!src/
-!Cargo.toml
-!Cargo.lock
 !config/
+!rust/src/
+!rust/Cargo.toml
+!rust/Cargo.lock
+!python/vector_logging/
+!python/pyproject.toml
