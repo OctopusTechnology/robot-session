@@ -7,23 +7,31 @@ services:
     network_mode: host
     command: --config /etc/livekit.yaml
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "netstat -ln | grep :7880 || ss -ln | grep :7880"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
 
   session-manager:
     build:
-      context: ./session-manager
+      context: .
       dockerfile: Dockerfile
     container_name: session-manager
     volumes:
       - ./session-manager/config/docker.toml:/etc/session-manager/config.toml
     network_mode: host
     depends_on:
-      - livekit
+      livekit:
+        condition: service_healthy
     restart: unless-stopped
     environment:
-      - RUST_LOG=info
+      - RUST_LOG=session_manager=info,microservice_sdk=info,livekit=info,livekit_api=info,tower_http=info
       - RUST_BACKTRACE=1
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 15s
       timeout: 10s
       retries: 3
+      start_period: 30s

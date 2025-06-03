@@ -1,0 +1,34 @@
+services:
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: livekit-test
+    volumes:
+      - ./config.yaml:/etc/livekit.yaml
+    network_mode: host
+    command: --config /etc/livekit.yaml
+    healthcheck:
+      test: ["CMD", "sh", "-c", "netstat -ln | grep :7880 || ss -ln | grep :7880"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  integration-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: integration-test
+    network_mode: host
+    depends_on:
+      livekit:
+        condition: service_healthy
+    environment:
+      - RUST_LOG=session_manager=debug,microservice_sdk=debug,livekit=info,livekit_api=info,tower_http=info
+      - RUST_BACKTRACE=1
+      - LIVEKIT_API_KEY=devkey
+      - LIVEKIT_API_SECRET=devkey_secret_that_is_at_least_32_characters_long_for_security
+      - LIVEKIT_SERVER_URL=ws://localhost:7880
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    command: cargo test --test livekit_integration_test -- --nocapture

@@ -1,0 +1,23 @@
+# Use Rust official image
+FROM rust:1.87
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy the entire workspace
+COPY . .
+
+# Build dependencies first for better caching
+RUN cargo fetch
+
+# Build the project
+RUN cargo build --tests
+
+# Default command will be overridden by docker-compose
+CMD ["cargo", "test", "--test", "livekit_integration_test", "--", "--nocapture"]

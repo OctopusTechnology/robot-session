@@ -68,7 +68,7 @@ Content-Type: application/json
 ### 创建会话
 
 ```bash
-POST /api/v1/sessions
+POST /api/v1/create-session
 Content-Type: application/json
 
 {

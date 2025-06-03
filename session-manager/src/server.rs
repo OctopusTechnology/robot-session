@@ -55,7 +55,7 @@ impl Server {
                 "/api/v1/microservices/register",
                 post(handlers::register_microservice),
             )
-            .route("/api/v1/sessions", post(handlers::create_session))
+            .route("/api/v1/create-session", post(handlers::create_session))
             .with_state(app_state)
             .layer(
                 ServiceBuilder::new()

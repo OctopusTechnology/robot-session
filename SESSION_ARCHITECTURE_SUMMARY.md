@@ -110,7 +110,7 @@ Microservice Startup → SDK Registration → Session Manager Registry
 ### 2. Session Creation Flow
 ```
 Client Request → Session Creation → LiveKit Setup → Service Notification → Monitoring
-1. Client sends POST /api/v1/sessions with required_services
+1. Client sends POST /api/v1/create-session with required_services
 2. SessionService creates Session entity
 3. Session creates LiveKit room via API
 4. Session connects to LiveKit for monitoring
@@ -189,7 +189,7 @@ pub enum SessionEvent {
 ### Session Manager REST API
 - `GET /health` - System health check with version info
 - `POST /api/v1/microservices/register` - Register microservice with metadata
-- `POST /api/v1/sessions` - Create new session with optional service requirements
+- `POST /api/v1/create-session` - Create new session with optional service requirements
 
 ### Microservice SDK API (Auto-generated)
 - `POST /join-room` - Join LiveKit room (called by session manager)

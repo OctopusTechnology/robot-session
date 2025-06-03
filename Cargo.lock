@@ -2548,6 +2548,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "tracing-vector",
  "uuid",
 ]
 
@@ -3078,6 +3079,19 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "tracing-vector"
+version = "0.1.0"
+source = "git+https://github.com/OctopusTechnology/vector-log-hub.git#28a8cf001db7e4a0081d514cdee23a6efbe307b1"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "tracing",
+ "tracing-core",
+ "tracing-subscriber",
 ]
 
 [[package]]

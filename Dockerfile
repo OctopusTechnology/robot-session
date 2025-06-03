@@ -1,13 +1,15 @@
 # Build stage
-FROM rust:latest as builder
+FROM rust:1.87 AS builder
 
 WORKDIR /app
 
-# Copy all source files
-COPY . .
+# Copy workspace files
+COPY Cargo.toml Cargo.lock ./
+COPY session-manager/ ./session-manager/
+COPY microservice-sdk/ ./microservice-sdk/
 
-# Build the application
-RUN cargo build --release
+# Build the session-manager application
+RUN cargo build --release --bin session-manager
 
 # Runtime stage
 FROM ubuntu:24.04
@@ -17,6 +19,7 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
     curl \
+    net-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user
@@ -29,7 +32,7 @@ COPY --from=builder /app/target/release/session-manager /usr/local/bin/session-m
 RUN mkdir -p /etc/session-manager && chown appuser:appuser /etc/session-manager
 
 # Copy default config
-COPY config/docker.toml /etc/session-manager/config.toml
+COPY session-manager/config/docker.toml /etc/session-manager/config.toml
 
 # Switch to app user
 USER appuser

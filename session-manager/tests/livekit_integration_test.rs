@@ -11,7 +11,7 @@ use pong_service::{start_pong_service, PongService};
 // Test configuration for LiveKit
 const LIVEKIT_URL: &str = "ws://localhost:7880";
 const LIVEKIT_API_KEY: &str = "devkey";
-const LIVEKIT_API_SECRET: &str = "secret";
+const LIVEKIT_API_SECRET: &str = "devkey_secret_that_is_at_least_32_characters_long_for_security";
 
 #[tokio::test]
 async fn test_session_creation_with_microservice_integration() {
@@ -83,7 +83,7 @@ async fn test_session_creation_with_microservice_integration() {
     });
 
     // Call session creation API
-    let session_url = format!("{}/api/v1/sessions", base_url);
+    let session_url = format!("{}/api/v1/create-session", base_url);
     tracing::info!("🔗 Sending session creation request to: {}", session_url);
     tracing::debug!(
         "📤 Session request: {}",

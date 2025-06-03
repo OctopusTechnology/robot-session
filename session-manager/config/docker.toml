@@ -6,7 +6,7 @@ workers = 4
 [livekit]
 server_url = "http://localhost:7880"
 api_key = "devkey"
-api_secret = "secret"
+api_secret = "devkey_secret_that_is_at_least_32_characters_long_for_security"
 
 [microservices]
 registration_timeout = 30

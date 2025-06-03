@@ -50,6 +50,9 @@ async-trait = { workspace = true }
 # 并发集合
 dashmap = { workspace = true }
 
+# Vector 日志
+tracing-vector = { workspace = true }
+
 [dev-dependencies]
 # 测试框架
 tokio-test = { workspace = true }
