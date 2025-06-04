@@ -22,13 +22,13 @@ services:
     depends_on:
       livekit:
         condition: service_healthy
+    command: ["cargo", "test", "--package", "session-manager", "--test", "livekit_integration_test", "--", "--nocapture"]
     environment:
       - RUST_LOG=session_manager=debug,microservice_sdk=debug,livekit=info,livekit_api=info,tower_http=info
       - RUST_BACKTRACE=1
       - LIVEKIT_API_KEY=devkey
       - LIVEKIT_API_SECRET=devkey_secret_that_is_at_least_32_characters_long_for_security
       - LIVEKIT_SERVER_URL=ws://localhost:7880
-    volumes:
-      - .:/workspace
-    working_dir: /workspace
-    command: cargo test --test livekit_integration_test -- --nocapture
+      - CONFIG_FILE=session-manager/config/docker.test.toml
+      - VECTOR_LOG_ENABLED=true
+      - VECTOR_LOG_ENDPOINT=localhost:9000

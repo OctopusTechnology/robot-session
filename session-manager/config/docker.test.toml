@@ -13,10 +13,10 @@ registration_timeout = 30
 join_timeout = 60
 
 [logging]
-level = "info"
+level = "debug"
 format = "json"
 
 [vector_log]
 enabled = true
-endpoint = "http://localhost:8686"
-source_name = "session-manager"
+endpoint = "localhost:9000"
+source_name = "session-manager-test"

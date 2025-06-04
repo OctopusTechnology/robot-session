@@ -1,40 +1,4 @@
-# Build artifacts
 target/
-Cargo.lock.bak
-
-# IDE and editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Documentation
 *.md
-README*
-doc/
-docs/
-API文档.md
-
-# Test files
-tests/
-*.test
-*_test.rs
-
-# Development files
-.env
-.env.*
-Dockerfile*
 .dockerignore
-
-# Logs and temporary files
-*.log
-logs/
-tmp/
-temp/
-
-# Keep necessary source files and configuration
-!src/
-!Cargo.toml
-!Cargo.lock
-!config/
+Dockerfile*

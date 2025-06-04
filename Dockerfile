@@ -4,9 +4,7 @@ FROM rust:1.87 AS builder
 WORKDIR /app
 
 # Copy workspace files
-COPY Cargo.toml Cargo.lock ./
-COPY session-manager/ ./session-manager/
-COPY microservice-sdk/ ./microservice-sdk/
+COPY . .
 
 # Build the session-manager application
 RUN cargo build --release --bin session-manager

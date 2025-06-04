@@ -16,8 +16,8 @@ COPY . .
 # Build dependencies first for better caching
 RUN cargo fetch
 
-# Build the project
+# Build the tests
 RUN cargo build --tests
 
 # Default command will be overridden by docker-compose
-CMD ["cargo", "test", "--test", "livekit_integration_test", "--", "--nocapture"]
+CMD ["cargo", "test", "--package", "session-manager", "--test", "livekit_integration_test", "--", "--nocapture"]

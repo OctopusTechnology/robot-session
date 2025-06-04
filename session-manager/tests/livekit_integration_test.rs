@@ -15,14 +15,39 @@ const LIVEKIT_API_SECRET: &str = "devkey_secret_that_is_at_least_32_characters_l
 
 #[tokio::test]
 async fn test_session_creation_with_microservice_integration() {
-    // Initialize detailed logging
-    tracing_subscriber::fmt()
-        .with_env_filter("session_manager=debug,microservice_sdk=debug,livekit=info,livekit_api=info,tower_http=info")
+    // Initialize detailed logging with Vector support
+    use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+    
+    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        "session_manager=debug,microservice_sdk=debug,livekit=info,livekit_api=info,tower_http=info".into()
+    });
+
+    let fmt_layer = tracing_subscriber::fmt::layer()
         .with_target(true)
         .with_line_number(true)
         .with_thread_ids(true)
-        .with_level(true)
-        .init();
+        .with_level(true);
+
+    // Check if vector logging is enabled
+    let vector_enabled = std::env::var("VECTOR_LOG_ENABLED").unwrap_or_else(|_| "true".to_string()) == "true";
+    
+    if vector_enabled {
+        let vector_endpoint = std::env::var("VECTOR_LOG_ENDPOINT").unwrap_or_else(|_| "localhost:9000".to_string());
+        let vector_layer = tracing_vector::VectorLayer::new("session-manager-integration-test", &vector_endpoint);
+        
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(fmt_layer)
+            .with(vector_layer)
+            .init();
+            
+        tracing::info!("Vector logging initialized for integration test to: {}", vector_endpoint);
+    } else {
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(fmt_layer)
+            .init();
+    }
 
     tracing::info!("🔍 Starting LiveKit integration test with microservice support");
 
@@ -424,8 +449,8 @@ fn create_test_config() -> AppConfig {
             format: "json".to_string(),
         },
         vector_log: session_manager::config::VectorLogConfig {
-            enabled: false,
-            endpoint: "http://localhost:8686".to_string(),
+            enabled: std::env::var("VECTOR_LOG_ENABLED").unwrap_or_else(|_| "true".to_string()) == "true",
+            endpoint: std::env::var("VECTOR_LOG_ENDPOINT").unwrap_or_else(|_| "localhost:9000".to_string()),
             source_name: "session-manager-livekit-test".to_string(),
         },
     }
