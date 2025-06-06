@@ -150,9 +150,6 @@ Content-Type: application/json
 - `user_name` (可选): 用户显示名称
 - `room_name` (可选): 自定义房间名称，不提供则自动生成
 - `metadata` (可选): 会话元数据
-  - `purpose`: 会话目的
-  - `language`: 会话语言
-  - `duration_limit`: 时长限制（秒）
 - `required_services` (可选): 需要的微服务列表，不提供则使用所有可用服务
 
 **响应示例**:

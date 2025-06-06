@@ -9,7 +9,8 @@ async fn main() -> Result<()> {
 
     // 初始化日志
     let env_filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-        "session_manager=trace,tower_http=debug,livekit=trace,livekit_api=trace".into()
+        format!("session_manager={},tower_http=info,livekit={},livekit_api={}",
+                config.logging.level, config.logging.level, config.logging.level).into()
     });
 
     let fmt_layer = tracing_subscriber::fmt::layer()

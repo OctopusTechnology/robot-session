@@ -13,12 +13,12 @@ use uuid::Uuid;
 
 #[async_trait]
 pub trait SessionService: Send + Sync {
-    async fn create_session(&self, request: JoinSessionRequest) -> Result<(Session, String)>;
+    async fn create_session(&self, request: CreateSessionRequest) -> Result<(Session, String)>;
     async fn get_session(&self, session_id: &str) -> Result<Option<Session>>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JoinSessionRequest {
+pub struct CreateSessionRequest {
     pub user_identity: String,
     pub user_name: Option<String>,
     pub room_name: Option<String>,
@@ -67,7 +67,7 @@ impl SessionService for SessionServiceImpl {
             session_status
         )
     )]
-    async fn create_session(&self, request: JoinSessionRequest) -> Result<(Session, String)> {
+    async fn create_session(&self, request: CreateSessionRequest) -> Result<(Session, String)> {
         // 1. Generate session ID and room name
         let session_id = Uuid::new_v4().to_string();
         let room_name = request

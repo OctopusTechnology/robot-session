@@ -69,7 +69,7 @@ impl Default for AppConfig {
                 enabled: std::env::var("VECTOR_LOG_ENABLED").unwrap_or_else(|_| "true".to_string())
                     == "true",
                 endpoint: std::env::var("VECTOR_LOG_ENDPOINT")
-                    .unwrap_or_else(|_| "http://localhost:8686".to_string()),
+                    .unwrap_or_else(|_| "localhost:9000".to_string()),
                 source_name: "session-manager".to_string(),
             },
         }
@@ -78,10 +78,22 @@ impl Default for AppConfig {
 
 impl AppConfig {
     pub fn load() -> Result<Self> {
-        // 首先尝试从环境变量加载
-        let mut config = AppConfig::default();
+        // 首先尝试从 TOML 配置文件加载
+        let config_path = std::env::var("CONFIG_PATH").unwrap_or_else(|_| "/etc/session-manager/config.toml".to_string());
+        
+        let mut config = if std::path::Path::new(&config_path).exists() {
+            // 从 TOML 文件加载配置
+            let config_str = std::fs::read_to_string(&config_path)
+                .map_err(|e| SessionManagerError::Configuration(format!("Failed to read config file {}: {}", config_path, e)))?;
+            
+            toml::from_str::<AppConfig>(&config_str)
+                .map_err(|e| SessionManagerError::Configuration(format!("Failed to parse config file: {}", e)))?
+        } else {
+            // 如果配置文件不存在，使用默认配置
+            AppConfig::default()
+        };
 
-        // 覆盖 LiveKit 配置
+        // 环境变量覆盖配置文件设置
         if let Ok(url) = std::env::var("LIVEKIT_SERVER_URL") {
             config.livekit.server_url = url;
         }
@@ -100,6 +112,14 @@ impl AppConfig {
             config.server.port = port
                 .parse()
                 .map_err(|e| SessionManagerError::Configuration(format!("Invalid port: {}", e)))?;
+        }
+
+        // 覆盖 Vector 日志配置
+        if let Ok(enabled) = std::env::var("VECTOR_LOG_ENABLED") {
+            config.vector_log.enabled = enabled == "true";
+        }
+        if let Ok(endpoint) = std::env::var("VECTOR_LOG_ENDPOINT") {
+            config.vector_log.endpoint = endpoint;
         }
 
         Ok(config)

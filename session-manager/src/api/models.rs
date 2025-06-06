@@ -20,7 +20,7 @@ pub struct RegisterMicroserviceResponse {
 
 // 会话创建 API
 #[derive(Debug, Deserialize)]
-pub struct JoinSessionRequest {
+pub struct CreateSessionRequest {
     pub user_identity: String,
     pub user_name: Option<String>,
     pub room_name: Option<String>,

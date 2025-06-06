@@ -29,6 +29,9 @@ services:
     environment:
       - RUST_LOG=session_manager=info,microservice_sdk=info,livekit=info,livekit_api=info,tower_http=info
       - RUST_BACKTRACE=1
+      - LIVEKIT_API_KEY=devkey
+      - LIVEKIT_API_SECRET=devkey_secret_that_is_at_least_32_characters_long_for_security
+      - LIVEKIT_SERVER_URL=ws://localhost:7880
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 15s

@@ -290,7 +290,7 @@ impl Session {
         let mut service_last_seen: std::collections::HashMap<String, std::time::Instant> =
             std::collections::HashMap::new();
 
-        const CLIENT_TIMEOUT_SECS: u64 = 300; // 5 minutes
+        const CLIENT_TIMEOUT_SECS: u64 = 60; // 5 minutes
         const SERVICE_TIMEOUT_SECS: u64 = 60; // 1 minute
         const SERVICE_RETRY_INTERVAL_SECS: u64 = 30; // 30 seconds
 

@@ -53,10 +53,10 @@ pub async fn register_microservice(
 // 创建会话 - 简单同步创建，返回会话信息
 pub async fn create_session(
     State(state): State<AppState>,
-    Json(request): Json<JoinSessionRequest>,
+    Json(request): Json<CreateSessionRequest>,
 ) -> Result<Json<CreateSessionResponse>, (StatusCode, Json<ErrorResponse>)> {
     // 转换请求类型
-    let session_request = crate::services::session_service::JoinSessionRequest {
+    let session_request = crate::services::session_service::CreateSessionRequest {
         user_identity: request.user_identity.clone(),
         user_name: request.user_name,
         room_name: request.room_name,
