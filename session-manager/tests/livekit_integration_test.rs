@@ -71,7 +71,7 @@ async fn test_session_creation_with_microservice_integration() {
     sleep(Duration::from_millis(1000)).await;
 
     let client = Client::new();
-    let base_url = "http://127.0.0.1:8080";
+    let base_url = "http://127.0.0.1:8765";
 
     // 1. Test health check
     tracing::info!("✓ Testing health check");
@@ -432,7 +432,7 @@ fn create_test_config() -> AppConfig {
     AppConfig {
         server: session_manager::config::ServerConfig {
             host: "127.0.0.1".to_string(),
-            port: 8080,
+            port: 8765,
             workers: Some(1),
         },
         livekit: session_manager::config::LiveKitConfig {
